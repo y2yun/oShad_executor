@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <title>Python code executor</title>
+    <!-- 引入 Plotly.js 用于渲染图表 -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            margin-bottom: 10px;
+            font-family: monospace;
+            font-size: 14px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            resize: vertical;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+
+        .output {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background: #f9f9f9;
+            padding: 10px;
+            border: 1px solid #eee;
+            margin: 5px 0;
+        }
+
+        #consoleOutput {
+            color: #333;
+        }
+
+        #plotlyResult {
+            width: 100%;
+            height: 400px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Python code executor</h1>
+
+<textarea id="code" placeholder="Enter your Python code..."></textarea>
+
+<br/>
+<button onclick="runCode()">Run the code</button>
+
+<div class="output" id="result">
+    <h2>Result preview</h2>
+    <div id="plotlyResult"></div>
+</div>
+
+<div class="output" id="console">
+    <h2>Console output</h2>
+    <pre id="consoleOutput">Wait for execution...</pre>
+</div>
+
+<script>
+function $(id) {
+    const el = document.getElementById(id);
+    if (!el) {
+        console.error(`找不到 ID 为 "${id}" 的元素`);
+    }
+    return el;
+}
+
+async function runCode() {
+    const code = document.getElementById('code').value;
+
+    try {
+        const response = await fetch('/execute', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ code })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Network response failed：${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // 控制台输出
+        const consoleOutputEl = $('consoleOutput');
+        if (consoleOutputEl) {
+            consoleOutputEl.textContent = data.console ? data.console.join('\n') : 'No console output';
+        }
+
+        // 清空旧的结果
+        const resultContainer = $('result');
+        const plotlyDiv = $('plotlyResult');
+
+        if (resultContainer) {
+            // 只保留标题部分
+            resultContainer.innerHTML = '<h2>Result preview</h2>';
+        }
+
+        if (plotlyDiv) {
+            plotlyDiv.innerHTML = '';
+        }
+
+        // 显示新结果
+        if (data.result) {
+            if (data.result.type === 'dataframe') {
+                const tableContainer = document.createElement('div');
+                tableContainer.innerHTML = data.result.content;
+                if (resultContainer) {
+                    resultContainer.appendChild(tableContainer);
+                }
+            } else if (data.result.type === 'plotly') {
+                const chartData = JSON.parse(data.result.content);
+                if (plotlyDiv) {
+                    Plotly.newPlot(plotlyDiv, chartData.data, chartData.layout);
+                }
+            } else if (data.result.type === 'text') {
+                const pre = document.createElement('pre');
+                pre.textContent = data.result.content;
+                if (resultContainer) {
+                    resultContainer.appendChild(pre);
+                }
+            }
+        }
+
+    } catch (err) {
+        const consoleOutputEl = $('consoleOutput');
+        if (consoleOutputEl) {
+            consoleOutputEl.textContent = 'Request failed:' + err.message;
+        }
+    }
+}
+</script>
+
+</body>
+</html>
