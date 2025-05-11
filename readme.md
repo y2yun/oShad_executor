@@ -15,7 +15,24 @@ The structure of the API response is as follows:
   "console": [],
   "error": null,
   "result": {
-    "content": "<Content based on the type>",
-    "type": "<Type of result: 'text', 'dataframe', 'plotly', etc.>"
+    "content": {
+      "dataframeData": {
+        "content": "<HTML string representing the DataFrame table>",
+        "type": "dataframe"
+      },
+      "plotlyData": {
+        "content": {
+          "data": "<Plotly trace data>",
+          "layout": "<Plotly layout object>"
+        },
+        "type": "plotly"
+      },
+      "textData": {
+        "content": "<Plain text result>",
+        "type": "text"
+      }
+    },
+    "type": "<Type of result: 'dataframe', 'plotly', or 'text'>"
   }
 }
+

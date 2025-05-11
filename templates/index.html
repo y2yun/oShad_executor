@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8" />
-    <title>Python code executor</title>
+    <meta charset="UTF-8"/>
+    <title>Python Code Executor</title>
     <!-- 引入 Plotly.js 用于渲染图表 -->
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
@@ -60,7 +60,7 @@
 </head>
 <body>
 
-<h1>Python code executor</h1>
+<h1>Python Code Executor</h1>
 
 <textarea id="code" placeholder="Enter your Python code..."></textarea>
 
@@ -78,80 +78,95 @@
 </div>
 
 <script>
-function $(id) {
-    const el = document.getElementById(id);
-    if (!el) {
-        console.error(`找不到 ID 为 "${id}" 的元素`);
+    function $(id) {
+        const el = document.getElementById(id);
+        if (!el) {
+            console.error(`找不到 ID 为 "${id}" 的元素`);
+        }
+        return el;
     }
-    return el;
-}
 
-async function runCode() {
-    const code = document.getElementById('code').value;
+    async function runCode() {
+        const code = document.getElementById('code').value;
 
-    try {
-        const response = await fetch('/execute', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ code })
-        });
+        try {
+            const response = await fetch('/execute', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({code})
+            });
 
-        if (!response.ok) {
-            throw new Error(`Network response failed：${response.status}`);
-        }
+            if (!response.ok) {
+                throw new Error(`Network response failed：${response.status}`);
+            }
 
-        const data = await response.json();
+            const data = await response.json();
 
-        // 控制台输出
-        const consoleOutputEl = $('consoleOutput');
-        if (consoleOutputEl) {
-            consoleOutputEl.textContent = data.console ? data.console.join('\n') : 'No console output';
-        }
+            // 控制台输出
+            const consoleOutputEl = $('consoleOutput');
+            if (consoleOutputEl) {
+                consoleOutputEl.textContent = data.console ? data.console.join('\n') : 'No console output';
+            }
 
-        // 清空旧的结果
-        const resultContainer = $('result');
-        const plotlyDiv = $('plotlyResult');
+            // 清空旧的结果
+            const resultContainer = $('result');
+            const plotlyDiv = $('plotlyResult');
 
-        if (resultContainer) {
-            // 只保留标题部分
-            resultContainer.innerHTML = '<h2>Result preview</h2>';
-        }
+            if (resultContainer) {
+                resultContainer.innerHTML = '<h2>Result preview</h2>';
+            }
 
-        if (plotlyDiv) {
-            plotlyDiv.innerHTML = '';
-        }
+            if (plotlyDiv) {
+                plotlyDiv.innerHTML = '';
+            }
 
-        // 显示新结果
-        if (data.result) {
-            if (data.result.type === 'dataframe') {
-                const tableContainer = document.createElement('div');
-                tableContainer.innerHTML = data.result.content;
-                if (resultContainer) {
-                    resultContainer.appendChild(tableContainer);
+            // 显示新结果
+            if (data.result && data.result.content) {
+                const resultType = data.result.type;
+                const content = data.result.content;
+
+                // Debugging line to inspect the actual structure of 'content'
+                console.log('Content:', content);
+
+                if (resultType === 'dataframe') {
+                    if (content.dataframeData && typeof content.dataframeData.content === 'string') {
+                        const tableContainer = document.createElement('div');
+                        tableContainer.innerHTML = content.dataframeData.content; // 确保这是HTML字符串
+                        resultContainer.appendChild(tableContainer);
+                    } else {
+                        resultContainer.appendChild(document.createTextNode("Invalid or missing dataframe content."));
+                    }
+                } else if (resultType === 'plotly') {
+                    if (content.plotlyData && content.plotlyData.content &&
+                        Array.isArray(content.plotlyData.content.data) && content.plotlyData.content.layout) {
+                        Plotly.newPlot(plotlyDiv, content.plotlyData.content.data, content.plotlyData.content.layout);
+                    } else {
+                        resultContainer.appendChild(document.createTextNode("Invalid Plotly data."));
+                    }
+                } else if (resultType === 'text') {
+                    if (typeof content.textData.content === 'string') {
+                        const pre = document.createElement('pre');
+                        pre.textContent = content.textData.content; // 确保这是纯文本内容
+                        resultContainer.appendChild(pre);
+                    } else {
+                        resultContainer.appendChild(document.createTextNode("Invalid text content."));
+                    }
+                } else {
+                    resultContainer.appendChild(document.createTextNode("Unsupported or missing result type."));
                 }
-            } else if (data.result.type === 'plotly') {
-                const chartData = JSON.parse(data.result.content);
-                if (plotlyDiv) {
-                    Plotly.newPlot(plotlyDiv, chartData.data, chartData.layout);
-                }
-            } else if (data.result.type === 'text') {
-                const pre = document.createElement('pre');
-                pre.textContent = data.result.content;
-                if (resultContainer) {
-                    resultContainer.appendChild(pre);
-                }
+            } else {
+                resultContainer.appendChild(document.createTextNode("No result returned."));
+            }
+
+        } catch (err) {
+            const consoleOutputEl = $('consoleOutput');
+            if (consoleOutputEl) {
+                consoleOutputEl.textContent = 'Request failed: ' + err.message;
             }
         }
-
-    } catch (err) {
-        const consoleOutputEl = $('consoleOutput');
-        if (consoleOutputEl) {
-            consoleOutputEl.textContent = 'Request failed:' + err.message;
-        }
     }
-}
 </script>
 
 </body>
